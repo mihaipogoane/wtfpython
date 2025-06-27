@@ -36,7 +36,7 @@ jobs:
       - name: Run two streamlink instances for each stream, one via Tor
         run: |
           # Kick.com
-          STREAM_URL1="https://kick.com/voristic"
+          STREAM_URL1="https://kick.com/thyyrellik"
           OUTFILE1_1="/tmp/stream1_inst1.ts"
           LOGFILE1_1="streamlink1_inst1.log"
           OUTFILE1_2="/tmp/stream1_inst2.ts"
