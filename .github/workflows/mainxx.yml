@@ -92,4 +92,4 @@ jobs:
         warp-cli --accept-tos registration new
     - name: Run python raw_easyjet.py --debug
       run: |
-        python raw_easyjet.py --debug --chrome --xvfb
+        python noxfile.py --debug --chrome --xvfb
