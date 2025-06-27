@@ -24,7 +24,7 @@ jobs:
       - name: check stream
         id: wait_stream_offline1
         run: |
-          STREAM_URL="https://kick.com/voristic"
+          STREAM_URL="https://kick.com/thyyrellik"
           echo "Checking stream status for $STREAM_URL"
           set +e
           if true; then
