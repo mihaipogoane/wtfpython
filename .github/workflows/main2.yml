@@ -29,7 +29,7 @@ jobs:
           echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
           sudo apt update
           sudo apt install -y cloudflare-warp
-          sudo warp-cli --accept-tos registration new
+          warp-cli --accept-tos registration new
           sudo warp-cli connect
           sleep 5
           sudo warp-cli status
