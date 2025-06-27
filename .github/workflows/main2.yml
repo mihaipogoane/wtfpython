@@ -17,23 +17,22 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install Streamlink and dependencies
+      - name: Install Streamlink
         run: |
           pip install streamlink
-          pip install cloudscraper
 
-      - name: Connect to Cloudflare (Kick)
-        id: cloudflare_kick
+      - name: Install Cloudflare WARP
         run: |
-          python - <<'EOF'
-          import cloudscraper
-          url = "https://kick.com/vortex-ktv"
-          scraper = cloudscraper.create_scraper()
-          resp = scraper.get(url)
-          print("Cloudflare status:", resp.status_code)
-          if resp.status_code != 200:
-              exit(1)
-          EOF
+          sudo apt update
+          sudo apt install -y curl
+          curl https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+          sudo apt update
+          sudo apt install -y cloudflare-warp
+          sudo warp-cli --accept-tos registration new
+          sudo warp-cli connect
+          sleep 5
+          sudo warp-cli status
 
       - name: check stream (Kick)
         id: wait_stream_offline1
@@ -60,19 +59,6 @@ jobs:
             fi
           fi
           set -e
-
-      - name: Connect to Cloudflare (Twitch)
-        id: cloudflare_twitch
-        run: |
-          python - <<'EOF'
-          import cloudscraper
-          url = "https://twitch.tv/vortex-ktv"
-          scraper = cloudscraper.create_scraper()
-          resp = scraper.get(url)
-          print("Cloudflare status:", resp.status_code)
-          if resp.status_code != 200:
-              exit(1)
-          EOF
 
       - name: check stream (Twitch)
         id: wait_stream_offline
