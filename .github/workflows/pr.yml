@@ -1,28 +1,66 @@
-on: [pull_request]
+name: Streamlink
 
-permissions:
-  contents: read
-  pull-requests: read
-  checks: write
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
 
 jobs:
-  lint:
+  streamlink-job:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Write git diff to temp file
-      run: |
-        git fetch origin
-        git diff origin/${{ github.base_ref }} *.md translations/*/*.md \
-        | sed -n '/^+/p' | sed '/^+++/d' | sed 's/^+//' \
-        > ${{ runner.temp }}/diff.md
-    - name: Output diff
-      run: cat ${{ runner.temp }}/diff.md
-    - name: Check diff with markdownlint
-      uses: DavidAnson/markdownlint-cli2-action@v17
-      with:
-        globs: "${{ runner.temp }}/diff.md"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Streamlink
+        run: |
+          pip install streamlink
+      - name: Run two streamlink instances for each stream in parallel
+        run: |
+          # Kick.com
+          STREAM_URL1="https://kick.com/voristic"
+          OUTFILE1_1="/tmp/stream1_inst1.ts"
+          LOGFILE1_1="streamlink1_inst1.log"
+          OUTFILE1_2="/tmp/stream1_inst2.ts"
+          LOGFILE1_2="streamlink1_inst2.log"
+      
+          # Twitch.tv
+          STREAM_URL2="https://twitch.tv/x"
+          OUTFILE2_1="/tmp/stream2_inst1.ts"
+          LOGFILE2_1="streamlink2_inst1.log"
+          OUTFILE2_2="/tmp/stream2_inst2.ts"
+          LOGFILE2_2="streamlink2_inst2.log"
+      
+          # Start two instances for kick.com
+          streamlink $STREAM_URL1 worst -o "$OUTFILE1_1" > "$LOGFILE1_1" 2>&1 &
+          PID1_1=$!
+          streamlink $STREAM_URL1 worst -o "$OUTFILE1_2" > "$LOGFILE1_2" 2>&1 &
+          PID1_2=$!
+      
+          # Start two instances for twitch.tv
+          streamlink $STREAM_URL2 worst -o "$OUTFILE2_1" > "$LOGFILE2_1" 2>&1 &
+          PID2_1=$!
+          streamlink $STREAM_URL2 worst -o "$OUTFILE2_2" > "$LOGFILE2_2" 2>&1 &
+          PID2_2=$!
+      
+          # Wait for all
+          wait $PID1_1
+          echo "Kick instance 1 exited with code $?"
+          cat "$LOGFILE1_1"
+      
+          wait $PID1_2
+          echo "Kick instance 2 exited with code $?"
+          cat "$LOGFILE1_2"
+      
+          wait $PID2_1
+          echo "Twitch instance 1 exited with code $?"
+          cat "$LOGFILE2_1"
+      
+          wait $PID2_2
+          echo "Twitch instance 2 exited with code $?"
+          cat "$LOGFILE2_2"
