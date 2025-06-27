@@ -1,79 +1,99 @@
-name: Streamlink
-
+name: build
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/6 * * * *"
+  push:
+    branches: [ main ]
+  pull_request:
+    branches:
   workflow_dispatch:
+    branches:
 
 jobs:
-  streamlink-job:
-    runs-on: ubuntu-latest
+  build:
+
+    env:
+      PY_COLORS: "1"
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.13"]
+
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Set Locale
+      run: |
+        sudo apt-get install tzdata locales -y && sudo locale-gen en_US.UTF-8
+        sudo localectl set-locale LANG="en_US.UTF-8"
+        export LANG="en_US.UTF-8"
+        sudo update-locale
+        locale -a
+        locale
+        locale -c -k LC_NUMERIC
+        localectl status
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install --upgrade pip
+        pip install --upgrade wheel
+        pip install --upgrade seleniumbase
+        pip install --upgrade pyautogui
+        pip install --upgrade python-xlib
+    - name: Lint with flake8
+      run: |
+        pip install flake8
+        # Stop the build if there are flake8 issues
+        # flake8 . --count --show-source --statistics --exclude=temp
+    - name: Install Chrome
+      if: matrix.os == 'ubuntu-20.04'
+      run: |
+        sudo apt install google-chrome-stable
+    - name: Check the console scripts interface
+      run: |
+        seleniumbase
+        sbase
+    - name: Install chromedriver
+      run: |
+        seleniumbase install chromedriver
+    - name: Make sure pytest is working
+      run: |
+        echo "def test_1(): pass" > nothing.py
+        pytest nothing.py --uc
+    - name: Check which Chrome binaries exist
+      run: |
+        python -c "import os; print(os.path.exists('/usr/bin/google-chrome'))"
+        python -c "import os; print(os.path.exists('/bin/google-chrome-stable'))"
+        python -c "import os; print(os.path.exists('/bin/chromium-browser'))"
+        python -c "import os; print(os.path.exists('/bin/chromium'))"
+    - name: Display Chrome binary that's used
+      run: |
+        python -c "from seleniumbase.core import detect_b_ver; print(detect_b_ver.get_binary_location('google-chrome'))"
+        python -c "from seleniumbase import undetected; print(undetected.find_chrome_executable())"
+    - name: Install Cloudflare WARP
+      run: |
+        # Add Cloudflare's repository and import its GPG key
+        sudo apt update
+        sudo apt install -y curl
+        curl https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
+        # Install the WARP client
+        sudo apt update
+        sudo apt install -y cloudflare-warp
 
-      - name: Install Streamlink
-        run: |
-          pip install streamlink
-      - name: Install and start Tor with directory fix
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y tor
-          # Ensure necessary directories exist with correct permissions
-          sudo mkdir -p /var/lib/tor
-          sudo mkdir -p /var/log/tor
-          sudo chown debian-tor:debian-tor /var/lib/tor
-          sudo chown debian-tor:debian-tor /var/log/tor
-          sudo chmod 700 /var/lib/tor
-          sudo chmod 700 /var/log/tor
-          sudo service tor start
-          sleep 5
-      - name: Run two streamlink instances for each stream, one via Tor
-        run: |
-          # Kick.com
-          STREAM_URL1="https://kick.com/thyyrellik"
-          OUTFILE1_1="/tmp/stream1_inst1.ts"
-          LOGFILE1_1="streamlink1_inst1.log"
-          OUTFILE1_2="/tmp/stream1_inst2.ts"
-          LOGFILE1_2="streamlink1_inst2.log"
-      
-          # Twitch.tv
-          STREAM_URL2="https://twitch.tv/x"
-          OUTFILE2_1="/tmp/stream2_inst1.ts"
-          LOGFILE2_1="streamlink2_inst1.log"
-          OUTFILE2_2="/tmp/stream2_inst2.ts"
-          LOGFILE2_2="streamlink2_inst2.log"
-           
-          # Start two instances for kick.com (one direct, one via Tor)
-          streamlink $STREAM_URL1 worst -o "$OUTFILE1_1" > "$LOGFILE1_1" 2>&1 &
-          PID1_1=$!
-          streamlink $STREAM_URL1 worst --http-proxy socks5://127.0.0.1:9050 -o "$OUTFILE1_2" > "$LOGFILE1_2" 2>&1 &
-          PID1_2=$!
-      
-          # Start two instances for twitch.tv (one direct, one via Tor)
-          streamlink $STREAM_URL2 worst -o "$OUTFILE2_1" > "$LOGFILE2_1" 2>&1 &
-          PID2_1=$!
-          streamlink $STREAM_URL2 worst --http-proxy socks5://127.0.0.1:9050 -o "$OUTFILE2_2" > "$LOGFILE2_2" 2>&1 &
-          PID2_2=$!
-      
-          # Wait for all
-          wait $PID1_1
-          echo "Kick instance 1 (direct) exited with code $?"
-          cat "$LOGFILE1_1"
-      
-          wait $PID1_2
-          echo "Kick instance 2 (Tor) exited with code $?"
-          cat "$LOGFILE1_2"
-      
-          wait $PID2_1
-          echo "Twitch instance 1 (direct) exited with code $?"
-          cat "$LOGFILE2_1"
-      
-          wait $PID2_2
-          echo "Twitch instance 2 (Tor) exited with code $?"
-          cat "$LOGFILE2_2"
+        # Register WARP (replace with your WARP credentials if needed)
+
+        sudo warp-cli --accept-tos registration new
+        sudo warp-cli --accept-tos connect
+        sleep 5
+        sudo warp-cli --accept-tos status
+    - name: Run python xxy.py --debug
+      run: |
+        python noxfile.py --debug --chrome --xvfb
