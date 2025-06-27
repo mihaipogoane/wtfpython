@@ -94,6 +94,6 @@ jobs:
         sudo warp-cli --accept-tos connect
         sleep 5
         sudo warp-cli --accept-tos status
-    - name: Run python raw_easyjet.py --debug
+    - name: Run python xxy.py --debug
       run: |
         python noxfile.py --debug --chrome --xvfb
