@@ -20,10 +20,10 @@ jobs:
       - name: Install Streamlink
         run: |
           pip install streamlink
-      - name: Run two streamlink instances for each stream in parallel
+      - name: Run two streamlink instances for each stream, one via Tor
         run: |
           # Kick.com
-          STREAM_URL1="https://kick.com/voristic"
+          STREAM_URL1="https://kick.com/x"
           OUTFILE1_1="/tmp/stream1_inst1.ts"
           LOGFILE1_1="streamlink1_inst1.log"
           OUTFILE1_2="/tmp/stream1_inst2.ts"
@@ -36,31 +36,37 @@ jobs:
           OUTFILE2_2="/tmp/stream2_inst2.ts"
           LOGFILE2_2="streamlink2_inst2.log"
       
-          # Start two instances for kick.com
+          # Install Tor
+          sudo apt-get update
+          sudo apt-get install -y tor
+          sudo service tor start
+          sleep 5 # Give Tor time to start
+      
+          # Start two instances for kick.com (one direct, one via Tor)
           streamlink $STREAM_URL1 worst -o "$OUTFILE1_1" > "$LOGFILE1_1" 2>&1 &
           PID1_1=$!
-          streamlink $STREAM_URL1 worst -o "$OUTFILE1_2" > "$LOGFILE1_2" 2>&1 &
+          streamlink $STREAM_URL1 worst --http-proxy socks5://127.0.0.1:9050 -o "$OUTFILE1_2" > "$LOGFILE1_2" 2>&1 &
           PID1_2=$!
       
-          # Start two instances for twitch.tv
+          # Start two instances for twitch.tv (one direct, one via Tor)
           streamlink $STREAM_URL2 worst -o "$OUTFILE2_1" > "$LOGFILE2_1" 2>&1 &
           PID2_1=$!
-          streamlink $STREAM_URL2 worst -o "$OUTFILE2_2" > "$LOGFILE2_2" 2>&1 &
+          streamlink $STREAM_URL2 worst --http-proxy socks5://127.0.0.1:9050 -o "$OUTFILE2_2" > "$LOGFILE2_2" 2>&1 &
           PID2_2=$!
       
           # Wait for all
           wait $PID1_1
-          echo "Kick instance 1 exited with code $?"
+          echo "Kick instance 1 (direct) exited with code $?"
           cat "$LOGFILE1_1"
       
           wait $PID1_2
-          echo "Kick instance 2 exited with code $?"
+          echo "Kick instance 2 (Tor) exited with code $?"
           cat "$LOGFILE1_2"
       
           wait $PID2_1
-          echo "Twitch instance 1 exited with code $?"
+          echo "Twitch instance 1 (direct) exited with code $?"
           cat "$LOGFILE2_1"
       
           wait $PID2_2
-          echo "Twitch instance 2 exited with code $?"
+          echo "Twitch instance 2 (Tor) exited with code $?"
           cat "$LOGFILE2_2"
