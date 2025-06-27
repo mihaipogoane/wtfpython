@@ -20,6 +20,19 @@ jobs:
       - name: Install Streamlink
         run: |
           pip install streamlink
+      - name: Install and start Tor with directory fix
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tor
+          # Ensure necessary directories exist with correct permissions
+          sudo mkdir -p /var/lib/tor
+          sudo mkdir -p /var/log/tor
+          sudo chown debian-tor:debian-tor /var/lib/tor
+          sudo chown debian-tor:debian-tor /var/log/tor
+          sudo chmod 700 /var/lib/tor
+          sudo chmod 700 /var/log/tor
+          sudo service tor start
+          sleep 5
       - name: Run two streamlink instances for each stream, one via Tor
         run: |
           # Kick.com
@@ -35,13 +48,7 @@ jobs:
           LOGFILE2_1="streamlink2_inst1.log"
           OUTFILE2_2="/tmp/stream2_inst2.ts"
           LOGFILE2_2="streamlink2_inst2.log"
-      
-          # Install Tor
-          sudo apt-get update
-          sudo apt-get install -y tor
-          sudo service tor start
-          sleep 5 # Give Tor time to start
-      
+           
           # Start two instances for kick.com (one direct, one via Tor)
           streamlink $STREAM_URL1 worst -o "$OUTFILE1_1" > "$LOGFILE1_1" 2>&1 &
           PID1_1=$!
