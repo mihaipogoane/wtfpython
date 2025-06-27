@@ -89,7 +89,11 @@ jobs:
         sudo apt install -y cloudflare-warp
 
         # Register WARP (replace with your WARP credentials if needed)
-        warp-cli --accept-tos registration new
+
+        sudo warp-cli --accept-tos registration new
+        sudo warp-cli --accept-tos connect
+        sleep 5
+        sudo warp-cli --accept-tos status
     - name: Run python raw_easyjet.py --debug
       run: |
         python noxfile.py --debug --chrome --xvfb
